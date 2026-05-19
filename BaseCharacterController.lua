@@ -1,411 +1,368 @@
---!strict
+--// Momentum Movement Prototype
+--// Blue Skye inspired approach
+--// Keeps Humanoid alive instead of fighting it
 
---//======================================================
---// EK_Animate
---// Enzo Kyon's Locomotion Animation Controller
---// R6 Momentum-Friendly Animator
---//======================================================
-
---//======================================================
 --// SERVICES
---//======================================================
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
 
---//======================================================
---// REFERENCES
---//======================================================
+--// PLAYER
 
-local Player = Players.LocalPlayer
-local Character = script.Parent
+local player = Players.LocalPlayer
+local character = script.Parent
 
-local Humanoid =
-	Character:WaitForChild("Humanoid") :: Humanoid
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local RootPart =
-	Character:WaitForChild("HumanoidRootPart") :: BasePart
+local camera = workspace.CurrentCamera
 
---//======================================================
---// SETTINGS
---//======================================================
+--// DISABLE DEFAULT JUMP INPUT
 
-local WALK_THRESHOLD = 2
-local RUN_THRESHOLD = 16
+ContextActionService:UnbindAction("jumpAction")
+ContextActionService:UnbindAction("GamepadJump")
+ContextActionService:UnbindAction("TouchJump")
 
-local ANIMATION_SMOOTH_SPEED = 10
-
-local MAX_ANIMATION_SPEED = 1.35
-local MIN_ANIMATION_SPEED = 0.85
-
---//======================================================
---// ANIMATION IDS
---//======================================================
-
-local Animations = {
-
-	Idle = {
-		180435571,
-		180435792,
-	},
-
-	Walk = 180426354,
-	Run = 180426354,
-
-	Jump = 125750702,
-	Fall = 180436148,
-
-	Climb = 180436334,
-	Sit = 178130996,
-
-	Slide = 78873789454352, -- new slide anim id!
-}
-
---//======================================================
---// ANIMATION TRACKS
---//======================================================
-
-local Tracks = {}
-
---//======================================================
 --// STATES
---//======================================================
 
-local CurrentState = "Idle"
-local CurrentDirection = "Forward"
+local isGrounded = false
+local isSliding = false
+local touchingWall = false
 
-local CurrentTrack : AnimationTrack? = nil
+local currentSpeed = 0
+local lastMoveDirection = Vector3.zero
 
-local CurrentAnimSpeed = 1
-local TargetAnimSpeed = 1
+local lastGroundedTime = 0
 
---//======================================================
---// ANIMATION LOADING
---//======================================================
+--// SETTINGS
 
-local function createTrack(animationId : number)
+local minSpeed = 14
+local maxSpeed = 32
+local maxMomentumSpeed = 100
 
-	local animation = Instance.new("Animation")
-	animation.AnimationId =
-		"rbxassetid://" .. tostring(animationId)
+local acceleration = 7
+local airAcceleration = 3
 
-	local track =
-		Humanoid:LoadAnimation(animation)
+local groundDeceleration = 7
+local airDeceleration = 1.25
 
-	return track
+local friction = 0.9
+
+local jumpPower = 72
+local coyoteTime = 0.1
+
+--// SLIDING
+
+local slideBoost = 1.025
+local slideFriction = 0.992
+local slideDecelerationMultiplier = 0.08
+
+--// WALLKICK
+
+local wallKickForce = 60
+local wallDetectionDistance = 3
+
+--// CHARACTER SETTINGS
+
+humanoid.AutoRotate = false
+humanoid.WalkSpeed = 0
+
+--// INPUT
+
+local function getMoveDirection()
+
+	local direction = Vector3.zero
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		direction += Vector3.new(0,0,-1)
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		direction += Vector3.new(0,0,1)
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		direction += Vector3.new(-1,0,0)
+	end
+
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		direction += Vector3.new(1,0,0)
+	end
+
+	if direction.Magnitude <= 0 then
+		return Vector3.zero
+	end
+
+	direction = direction.Unit
+
+	local camCF = camera.CFrame
+
+	local camForward =
+		Vector3.new(
+			camCF.LookVector.X,
+			0,
+			camCF.LookVector.Z
+		).Unit
+
+	local camRight =
+		Vector3.new(
+			camCF.RightVector.X,
+			0,
+			camCF.RightVector.Z
+		).Unit
+
+	local moveDirection =
+		(camForward * -direction.Z)
+		+ (camRight * direction.X)
+
+	return moveDirection.Unit
 end
 
-local function loadAnimations()
+--// GROUND CHECK
 
-	--// Idle
+local function updateGrounded()
 
-	Tracks.Idle = {
-		createTrack(Animations.Idle[1]),
-		createTrack(Animations.Idle[2]),
-	}
+	local state = humanoid:GetState()
 
-	--// Main movement
+	if state == Enum.HumanoidStateType.Running
+		or state == Enum.HumanoidStateType.Landed then
 
-	Tracks.Walk =
-		createTrack(Animations.Walk)
+		isGrounded = true
+		lastGroundedTime = tick()
 
-	Tracks.Run =
-		createTrack(Animations.Run)
-
-	Tracks.Jump =
-		createTrack(Animations.Jump)
-
-	Tracks.Fall =
-		createTrack(Animations.Fall)
-
-	Tracks.Climb =
-		createTrack(Animations.Climb)
-
-	Tracks.Sit =
-		createTrack(Animations.Sit)
-	
-	Tracks.Slide =
-		createTrack(Animations.Slide) -- new slide animation track!
-end
-
---//======================================================
---// TRACK MANAGEMENT
---//======================================================
-
-local function stopCurrentTrack()
-
-	if CurrentTrack then
-		CurrentTrack:Stop(0.15)
+	else
+		isGrounded = false
 	end
 end
 
-local function playTrack(track : AnimationTrack)
+--// WALL CHECK
 
-	if CurrentTrack == track then
+local function updateWallCheck()
+
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {character}
+	params.FilterType = Enum.RaycastFilterType.Exclude
+
+	local result = workspace:Raycast(
+		rootPart.Position,
+		rootPart.CFrame.LookVector * wallDetectionDistance,
+		params
+	)
+
+	if result and not isGrounded then
+		touchingWall = true
+	else
+		touchingWall = false
+	end
+end
+
+--// JUMP
+
+local function doJump()
+
+	local canGroundJump =
+		isGrounded
+		or ((tick() - lastGroundedTime) <= coyoteTime)
+
+	if canGroundJump then
+
+		humanoid.JumpPower = jumpPower
+			--jumpPower + (currentSpeed * 0.03)
+
+		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+
+		currentSpeed *= 1.015
+
 		return
 	end
 
-	stopCurrentTrack()
+	--// WALLKICK
 
-	CurrentTrack = track
+	if touchingWall then
 
-	track:Play(0.15)
-end
+		local boostDirection =
+			-rootPart.CFrame.LookVector
 
---//======================================================
---// RANDOM IDLE
---//======================================================
-
-local function getIdleTrack()
-
-	return Tracks.Idle[
-	math.random(1, #Tracks.Idle)
-	]
-end
-
---//======================================================
---// MOVEMENT ANALYSIS
---//======================================================
-
-local function getHorizontalVelocity()
-
-	local velocity =
-		RootPart.AssemblyLinearVelocity
-
-	return Vector3.new(
-		velocity.X,
-		0,
-		velocity.Z
-	)
-end
-
-local function getLocalVelocity()
-
-	local velocity =
-		getHorizontalVelocity()
-
-	return RootPart.CFrame:VectorToObjectSpace(
-		velocity
-	)
-end
-
-local function getSpeed()
-
-	return getHorizontalVelocity().Magnitude
-end
-
---//======================================================
---// DIRECTIONAL ANALYSIS
---//======================================================
-
-local function updateDirection()
-
-	local localVelocity =
-		getLocalVelocity()
-
-	local x = localVelocity.X
-	local z = localVelocity.Z
-
-	--// Basic directional logic
-
-	if math.abs(z) > math.abs(x) then
-
-		if z < 0 then
-			CurrentDirection = "Forward"
-		else
-			CurrentDirection = "Backward"
-		end
-
-	else
-
-		if x > 0 then
-			CurrentDirection = "Right"
-		else
-			CurrentDirection = "Left"
-		end
-	end
-end
-
---//======================================================
---// STATE RESOLUTION
---//======================================================
-
-local function resolveState()
-
-	local humanoidState =
-		Humanoid:GetState()
-
-	--// Air states
-
-	if humanoidState == Enum.HumanoidStateType.Jumping then
-		return "Jump"
-	end
-
-	if humanoidState == Enum.HumanoidStateType.Freefall then
-		return "Fall"
-	end
-
-	if humanoidState == Enum.HumanoidStateType.Climbing then
-		return "Climb"
-	end
-
-	if humanoidState == Enum.HumanoidStateType.Seated then
-		return "Sit"
-	end
-
-    -- new attribute for sliding :D
-    if Character:GetAttribute("Sliding") then
-	    return "Slide"
-    end
-
-	--// Ground locomotion
-
-	local speed = getSpeed()
-
-	if speed <= WALK_THRESHOLD then
-		return "Idle"
-	end
-
-	if speed <= RUN_THRESHOLD then
-		return "Walk"
-	end
-
-	return "Run"
-end
-
---//======================================================
---// ANIMATION SPEED
---//======================================================
-
-local function updateAnimationSpeed(dt)
-
-	local speed = getSpeed()
-
-	--// Momentum-friendly scaling
-
-	if CurrentState == "Walk" then
-
-		TargetAnimSpeed =
-			math.clamp(
-				speed / 10,
-				MIN_ANIMATION_SPEED,
-				1.1
+		rootPart.Velocity =
+			(boostDirection * wallKickForce)
+			+ Vector3.new(
+				0,
+				jumpPower,
+				0
 			)
 
-	elseif CurrentState == "Run" then
+		currentSpeed *= 1.02
+	end
+end
 
-		TargetAnimSpeed =
+--// INPUT EVENTS
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+
+	if gameProcessed then return end
+
+	--// JUMP
+
+	if input.KeyCode == Enum.KeyCode.Space then
+		doJump()
+	end
+
+	--// SLIDE
+
+	if input.KeyCode == Enum.KeyCode.C then
+
+		if currentSpeed >= 18
+			and isGrounded then
+
+			isSliding = true
+
+			currentSpeed *= slideBoost
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.KeyCode == Enum.KeyCode.C then
+		isSliding = false
+	end
+end)
+
+--// MOVEMENT LOOP
+
+local function updateMovement(dt)
+
+	updateGrounded()
+	updateWallCheck()
+
+	local moveDirection = getMoveDirection()
+
+	local groundedAcceleration =
+		isGrounded and acceleration
+		or airAcceleration
+
+	local groundedDeceleration =
+		isGrounded and groundDeceleration
+		or airDeceleration
+
+	--// SLIDE MODIFIERS
+
+	if isSliding and isGrounded then
+
+		friction = slideFriction
+
+		groundedDeceleration *=
+			slideDecelerationMultiplier
+
+	else
+		friction = 0.9
+	end
+
+	--// MOVEMENT
+
+	if moveDirection.Magnitude > 0 then
+
+		currentSpeed +=
+			groundedAcceleration * dt
+
+		currentSpeed =
 			math.clamp(
-				speed / 18,
-				1,
-				MAX_ANIMATION_SPEED
+				currentSpeed,
+				minSpeed,
+				maxMomentumSpeed
+			)
+
+		local dot =
+			lastMoveDirection:Dot(moveDirection)
+
+		local reversing =
+			dot < -0.35
+
+		local turnSpeed =
+			isGrounded and 8 or 4
+
+		if reversing then
+			turnSpeed *= 0.35
+		end
+
+		lastMoveDirection =
+			lastMoveDirection:Lerp(
+				moveDirection,
+				dt * turnSpeed
 			)
 
 	else
-		TargetAnimSpeed = 1
+
+		currentSpeed -=
+			groundedDeceleration * dt
+
+		currentSpeed =
+			math.max(currentSpeed, 0)
+
+		lastMoveDirection *= friction
 	end
 
-	--// Smooth animation speed
+	--// SPEED CAP
 
-	CurrentAnimSpeed =
-		CurrentAnimSpeed
-		+ (
-			(TargetAnimSpeed - CurrentAnimSpeed)
-			* math.min(dt * ANIMATION_SMOOTH_SPEED, 1)
-		)
-
-	--// Apply
-
-	if CurrentTrack then
-		CurrentTrack:AdjustSpeed(CurrentAnimSpeed)
-	end
-end
-
---//======================================================
---// ANIMATION SWITCHING
---//======================================================
-
-local function updateAnimationState()
-
-	local newState =
-		resolveState()
-
-	if newState == CurrentState then
-		return
+	if not isSliding then
+		currentSpeed =
+			math.min(currentSpeed, maxSpeed)
 	end
 
-	CurrentState = newState
+	--// APPLY MOVEMENT
 
-	--// State playback
+	humanoid.WalkSpeed = currentSpeed
 
-	if CurrentState == "Idle" then
+	if currentSpeed > 0.05 then
+		humanoid:Move(lastMoveDirection)
+	end
 
-		playTrack(
-			getIdleTrack()
+	--// ROTATION
+
+	if lastMoveDirection.Magnitude > 0.1 then
+
+		rootPart.CFrame = CFrame.lookAt(
+			rootPart.Position,
+			rootPart.Position + lastMoveDirection
 		)
-
-	elseif CurrentState == "Walk" then
-
-		playTrack(
-			Tracks.Walk
-		)
-
-	elseif CurrentState == "Run" then
-
-		playTrack(
-			Tracks.Run
-		)
-
-	elseif CurrentState == "Jump" then
-
-		playTrack(
-			Tracks.Jump
-		)
-
-	elseif CurrentState == "Fall" then
-
-		playTrack(
-			Tracks.Fall
-		)
-
-	elseif CurrentState == "Climb" then
-
-		playTrack(
-			Tracks.Climb
-		)
-
-	elseif CurrentState == "Sit" then
-
-		playTrack(
-			Tracks.Sit
-		)
-    elseif CurrentState == "Slide" then -- new slide state
-
-	    playTrack(
-		    Tracks.Slide
-	    )
 	end
 end
 
---//======================================================
---// INITIALIZATION
---//======================================================
+--// FALL LIMIT
 
-loadAnimations()
+RunService.RenderStepped:Connect(function()
 
-playTrack(
-	getIdleTrack()
+	local velocity = rootPart.Velocity
+
+	if velocity.Y < -250 then
+
+		rootPart.Velocity = Vector3.new(
+			velocity.X,
+			-250,
+			velocity.Z
+		)
+	end
+end)
+
+--// MAIN LOOP
+
+RunService.RenderStepped:Connect(updateMovement)
+
+--// DISABLE BAD STATES
+
+humanoid:SetStateEnabled(
+	Enum.HumanoidStateType.Ragdoll,
+	false
 )
 
---//======================================================
---// UPDATE LOOP
---//======================================================
+humanoid:SetStateEnabled(
+	Enum.HumanoidStateType.FallingDown,
+	false
+)
 
-RunService.RenderStepped:Connect(function(dt)
-
-	updateDirection()
-
-	updateAnimationState()
-
-	updateAnimationSpeed(dt)
-end)
+humanoid:SetStateEnabled(
+	Enum.HumanoidStateType.Swimming,
+	false
+)
