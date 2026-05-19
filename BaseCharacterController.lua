@@ -36,6 +36,8 @@ local lastMoveDirection = Vector3.zero
 
 local lastGroundedTime = 0
 
+character:SetAttribute("Sliding", false) -- added a fix for sliding... i think
+
 --// SETTINGS
 
 local minSpeed = 14
