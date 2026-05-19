@@ -57,8 +57,8 @@ local Animations = {
 
 	Climb = 180436334,
 	Sit = 178130996,
-	
-	Slide = 78873789454352,
+
+	Slide = 78873789454352, -- new slide anim id!
 }
 
 --//======================================================
@@ -253,6 +253,11 @@ local function resolveState()
 		return "Sit"
 	end
 
+    -- new attribute for sliding :D
+    if Character:GetAttribute("Sliding") then
+	    return "Slide"
+    end
+
 	--// Ground locomotion
 
 	local speed = getSpeed()
@@ -374,6 +379,11 @@ local function updateAnimationState()
 		playTrack(
 			Tracks.Sit
 		)
+    elseif CurrentState == "Slide" then -- new slide state
+
+	    playTrack(
+		    Tracks.Slide
+	    )
 	end
 end
 
