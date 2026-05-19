@@ -58,3 +58,6 @@ src/
 ├── BaseCharacterController.lua
 ├── EK_Animate.lua
 └── Shared/
+```
+
+PS: I feel embarrased for brain-farting in this project lmao

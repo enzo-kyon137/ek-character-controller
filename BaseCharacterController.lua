@@ -218,6 +218,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 			isSliding = true
 
+            character:SetAttribute("Sliding", true)
+
 			currentSpeed *= slideBoost
 		end
 	end
@@ -227,6 +229,8 @@ UserInputService.InputEnded:Connect(function(input)
 
 	if input.KeyCode == Enum.KeyCode.C then
 		isSliding = false
+
+        character:SetAttribute("Sliding", false)
 	end
 end)
 
