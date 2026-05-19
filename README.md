@@ -10,7 +10,7 @@ A momentum-focused Roblox character controller framework built for:
 This project focuses on:
 - momentum movement
 - smooth acceleration
-- wallkicks (optional)
+- wallkicks (optional, idk if it's possible)
 - sliding (optional)
 - directional locomotion
 - animation stability
@@ -36,7 +36,7 @@ The controller follows a hybrid approach:
   - acceleration
   - momentum
   - movement direction
-  - sliding
+  - sliding (optional, needs setup)
   - traversal logic
   - movement feel
 
