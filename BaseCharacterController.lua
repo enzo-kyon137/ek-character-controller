@@ -33,6 +33,8 @@ ContextActionService:UnbindAction("TouchJump")
 local isGrounded = false
 local touchingWall = false
 
+local wallNormal = Vector3.zero
+
 local currentSpeed = 0
 local isSprinting = false
 local lastMoveDirection = Vector3.zero
@@ -40,8 +42,6 @@ local lastMoveDirection = Vector3.zero
 local lastGroundedTime = 0
 
 local oldHipHeight = humanoid.HipHeight
-
-character:SetAttribute("Sliding", false) -- added a fix for sliding... i think
 
 --// SETTINGS
 
@@ -146,17 +146,30 @@ local function updateWallCheck()
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {character}
 	params.FilterType = Enum.RaycastFilterType.Exclude
-
+	
 	local result = workspace:Raycast(
 		rootPart.Position,
 		rootPart.CFrame.LookVector * wallDetectionDistance,
 		params
 	)
-
+	
+	--[[ no longer need this since it doesnt allow for chained walljumps and proper wallkicks
 	if result and not isGrounded then
 		touchingWall = true
 	else
 		touchingWall = false
+	end
+	]]
+	
+	if result and not isGrounded then -- new wallcheck implementation
+
+		touchingWall = true
+		wallNormal = result.Normal
+
+	else
+
+		touchingWall = false
+		wallNormal = Vector3.zero
 	end
 end
 
