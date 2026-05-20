@@ -297,7 +297,7 @@ local function updateMovement(dt)
 	--// SPEED CAP
 
 	currentSpeed =
-		math.min(currentSpeed, maxSpeed)
+		math.min(currentSpeed, targetSpeed)
 
 	--// APPLY MOVEMENT
 
