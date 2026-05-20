@@ -17,6 +17,9 @@ local character = script.Parent
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
+local rootJoint =
+	rootPart:WaitForChild("RootJoint")
+
 local camera = workspace.CurrentCamera
 
 --// DISABLE DEFAULT JUMP INPUT
@@ -28,13 +31,14 @@ ContextActionService:UnbindAction("TouchJump")
 --// STATES
 
 local isGrounded = false
-local isSliding = false
 local touchingWall = false
 
 local currentSpeed = 0
 local lastMoveDirection = Vector3.zero
 
 local lastGroundedTime = 0
+
+local oldHipHeight = humanoid.HipHeight
 
 character:SetAttribute("Sliding", false) -- added a fix for sliding... i think
 
@@ -54,12 +58,6 @@ local friction = 0.9
 
 local jumpPower = 72
 local coyoteTime = 0.1
-
---// SLIDING
-
-local slideBoost = 1.025
-local slideFriction = 0.992
-local slideDecelerationMultiplier = 0.08
 
 --// WALLKICK
 
@@ -171,7 +169,7 @@ local function doJump()
 	if canGroundJump then
 
 		humanoid.JumpPower = jumpPower
-			--jumpPower + (currentSpeed * 0.03)
+		--jumpPower + (currentSpeed * 0.03)
 
 		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 
@@ -210,30 +208,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.Space then
 		doJump()
 	end
-
-	--// SLIDE
-
-	if input.KeyCode == Enum.KeyCode.C then
-
-		if currentSpeed >= 18
-			and isGrounded then
-
-			isSliding = true
-
-            character:SetAttribute("Sliding", true)
-
-			currentSpeed *= slideBoost
-		end
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-
-	if input.KeyCode == Enum.KeyCode.C then
-		isSliding = false
-
-        character:SetAttribute("Sliding", false)
-	end
 end)
 
 --// MOVEMENT LOOP
@@ -252,19 +226,6 @@ local function updateMovement(dt)
 	local groundedDeceleration =
 		isGrounded and groundDeceleration
 		or airDeceleration
-
-	--// SLIDE MODIFIERS
-
-	if isSliding and isGrounded then
-
-		friction = slideFriction
-
-		groundedDeceleration *=
-			slideDecelerationMultiplier
-
-	else
-		friction = 0.9
-	end
 
 	--// MOVEMENT
 
@@ -312,10 +273,8 @@ local function updateMovement(dt)
 
 	--// SPEED CAP
 
-	if not isSliding then
-		currentSpeed =
-			math.min(currentSpeed, maxSpeed)
-	end
+	currentSpeed =
+		math.min(currentSpeed, maxSpeed)
 
 	--// APPLY MOVEMENT
 
