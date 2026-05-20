@@ -68,7 +68,7 @@ local wallDetectionDistance = 3
 
 --// CHARACTER SETTINGS
 
-humanoid.AutoRotate = false
+humanoid.AutoRotate = true -- enabled to make the script compatible with shift-lock
 humanoid.WalkSpeed = 0
 
 --// INPUT
@@ -149,7 +149,8 @@ local function updateWallCheck()
 	
 	local result = workspace:Raycast(
 		rootPart.Position,
-		rootPart.CFrame.LookVector * wallDetectionDistance,
+		-- rootPart.CFrame.LookVector * wallDetectionDistance, // commented to try fix the wallkick mechanism
+		lastMoveDirection * wallDetectionDistance, -- should fix for now
 		params
 	)
 	
@@ -320,7 +321,8 @@ local function updateMovement(dt)
 	end
 
 	--// ROTATION
-
+	
+	--[[ commented this because it makes shiftlock not work since it's overriding, roblox autorotate already does it better
 	if lastMoveDirection.Magnitude > 0.1 then
 
 		rootPart.CFrame = CFrame.lookAt(
@@ -328,6 +330,7 @@ local function updateMovement(dt)
 			rootPart.Position + lastMoveDirection
 		)
 	end
+	]]
 end
 
 --// FALL LIMIT
