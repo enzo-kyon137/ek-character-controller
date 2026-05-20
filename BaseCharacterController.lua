@@ -254,8 +254,7 @@ local function updateMovement(dt)
 
 	if moveDirection.Magnitude > 0 then
 
-		currentSpeed +=
-			groundedAcceleration * dt
+		currentSpeed = targetSpeed
 
 		currentSpeed =
 			math.clamp(
