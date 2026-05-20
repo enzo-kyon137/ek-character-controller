@@ -34,6 +34,7 @@ local isGrounded = false
 local touchingWall = false
 
 local currentSpeed = 0
+local isSprinting = false
 local lastMoveDirection = Vector3.zero
 
 local lastGroundedTime = 0
@@ -44,8 +45,9 @@ character:SetAttribute("Sliding", false) -- added a fix for sliding... i think
 
 --// SETTINGS
 
-local minSpeed = 14
-local maxSpeed = 32
+local walkSpeed = 16
+local sprintSpeed = 24
+
 local maxMomentumSpeed = 100
 
 local acceleration = 7
@@ -56,7 +58,7 @@ local airDeceleration = 1.25
 
 local friction = 0.9
 
-local jumpPower = 72
+local jumpPower = humanoid.JumpPower
 local coyoteTime = 0.1
 
 --// WALLKICK
@@ -173,8 +175,6 @@ local function doJump()
 
 		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 
-		currentSpeed *= 1.015
-
 		return
 	end
 
@@ -192,8 +192,7 @@ local function doJump()
 				jumpPower,
 				0
 			)
-
-		currentSpeed *= 1.02
+		
 	end
 end
 
@@ -207,6 +206,25 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	if input.KeyCode == Enum.KeyCode.Space then
 		doJump()
+	end
+end)
+
+	--// SPRINT
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+
+	if gameProcessed then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isSprinting = true
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isSprinting = false
 	end
 end)
 
@@ -226,6 +244,11 @@ local function updateMovement(dt)
 	local groundedDeceleration =
 		isGrounded and groundDeceleration
 		or airDeceleration
+	
+	local targetSpeed =
+		isSprinting
+		and sprintSpeed
+		or walkSpeed
 
 	--// MOVEMENT
 
@@ -237,8 +260,8 @@ local function updateMovement(dt)
 		currentSpeed =
 			math.clamp(
 				currentSpeed,
-				minSpeed,
-				maxMomentumSpeed
+				0,
+				targetSpeed
 			)
 
 		local dot =
