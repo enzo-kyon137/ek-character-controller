@@ -31,9 +31,6 @@ ContextActionService:UnbindAction("TouchJump")
 --// STATES
 
 local isGrounded = false
-local touchingWall = false
-
-local wallNormal = Vector3.zero
 
 local currentSpeed = 0
 local isSprinting = false
@@ -42,6 +39,8 @@ local lastMoveDirection = Vector3.zero
 local lastGroundedTime = 0
 
 local oldHipHeight = humanoid.HipHeight
+
+local isDead = false
 
 --// SETTINGS
 
@@ -61,15 +60,22 @@ local friction = 0.9
 local jumpPower = humanoid.JumpPower
 local coyoteTime = 0.1
 
---// WALLKICK
-
-local wallKickForce = 60
-local wallDetectionDistance = 3
-
 --// CHARACTER SETTINGS
 
-humanoid.AutoRotate = false
+humanoid.AutoRotate = true -- Needs to be enabled to make the script compatible with shift-lock!
 humanoid.WalkSpeed = 0
+humanoid.BreakJointsOnDeath = true -- if enabled, it will do classic Roblox death animation; otherwise it will just ragdoll
+
+--// CAMERA SETTINGS
+
+local defaultFOV = 70
+local sprintFOV = 78
+
+local fovLerpSpeed = 8
+
+local headLockEnabled = true
+
+local headLockSmoothness = 12
 
 --// INPUT
 
@@ -139,43 +145,16 @@ local function updateGrounded()
 	end
 end
 
---// WALL CHECK
-
-local function updateWallCheck()
-
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {character}
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	
-	local result = workspace:Raycast(
-		rootPart.Position,
-		rootPart.CFrame.LookVector * wallDetectionDistance,
-		params
-	)
-	
-	--[[ no longer need this since it doesnt allow for chained walljumps and proper wallkicks
-	if result and not isGrounded then
-		touchingWall = true
-	else
-		touchingWall = false
-	end
-	]]
-	
-	if result and not isGrounded then -- new wallcheck implementation
-
-		touchingWall = true
-		wallNormal = result.Normal
-
-	else
-
-		touchingWall = false
-		wallNormal = Vector3.zero
-	end
-end
-
 --// JUMP
 
 local function doJump()
+	
+	if character:GetAttribute(
+		"MovementLocked"
+		) then
+
+		return
+	end
 
 	local canGroundJump =
 		isGrounded
@@ -191,22 +170,6 @@ local function doJump()
 		return
 	end
 
-	--// WALLKICK
-
-	if touchingWall then
-
-		local boostDirection =
-			-rootPart.CFrame.LookVector
-
-		rootPart.Velocity =
-			(boostDirection * wallKickForce)
-			+ Vector3.new(
-				0,
-				jumpPower,
-				0
-			)
-		
-	end
 end
 
 --// INPUT EVENTS
@@ -222,7 +185,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
-	--// SPRINT
+--// SPRINT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	if gameProcessed then
@@ -244,9 +207,26 @@ end)
 --// MOVEMENT LOOP
 
 local function updateMovement(dt)
+	
+	if character:GetAttribute(
+		"MovementLocked"
+		) then
+
+		humanoid:Move(
+			Vector3.zero
+		)
+
+		rootPart.AssemblyLinearVelocity =
+			Vector3.zero
+
+		return
+	end
 
 	updateGrounded()
-	updateWallCheck()
+	
+	if isDead then
+		return
+	end
 
 	local moveDirection = getMoveDirection()
 
@@ -257,7 +237,7 @@ local function updateMovement(dt)
 	local groundedDeceleration =
 		isGrounded and groundDeceleration
 		or airDeceleration
-	
+
 	local targetSpeed =
 		isSprinting
 		and sprintSpeed
@@ -319,15 +299,46 @@ local function updateMovement(dt)
 		humanoid:Move(lastMoveDirection)
 	end
 
-	--// ROTATION
+	--// CAMERA
 
-	if lastMoveDirection.Magnitude > 0.1 then
+	local targetFOV =
+		isSprinting
+		and sprintFOV
+		or defaultFOV
 
-		rootPart.CFrame = CFrame.lookAt(
-			rootPart.Position,
-			rootPart.Position + lastMoveDirection
+	camera.FieldOfView =
+		camera.FieldOfView
+		+ (
+			targetFOV
+			- camera.FieldOfView
 		)
+		* math.min(dt * fovLerpSpeed, 1)
+	
+	--// HEADLOCK
+	
+	local cameraDistance =
+		(
+			camera.CFrame.Position
+			- camera.Focus.Position
+		).Magnitude
+
+	local inFirstPerson =
+		cameraDistance <= 0.75
+
+	if headLockEnabled then
+
+		if inFirstPerson then
+
+			camera.CameraSubject =
+				humanoid
+
+		else
+
+			camera.CameraSubject =
+				character:WaitForChild("Head")
+		end
 	end
+	
 end
 
 --// FALL LIMIT
@@ -346,11 +357,28 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
+--// DEATH SAFEGUARDS
+
+humanoid.Died:Connect(function()
+
+	isDead = true
+
+	isSprinting = false
+	headLockEnabled = false
+
+	camera.FieldOfView =
+		defaultFOV
+end)
+
 --// MAIN LOOP
 
 RunService.RenderStepped:Connect(updateMovement)
 
 --// DISABLE BAD STATES
+
+--[[ 
+
+	// Bruh, these were making my character fall into the floor on its face instead of breaking apart, now it should make the oof death work
 
 humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.Ragdoll,
@@ -361,6 +389,8 @@ humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.FallingDown,
 	false
 )
+
+]] 
 
 humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.Swimming,
