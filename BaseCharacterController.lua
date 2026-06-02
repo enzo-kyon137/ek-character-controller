@@ -17,9 +17,6 @@ local character = script.Parent
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
-local rootJoint =
-	rootPart:WaitForChild("RootJoint")
-
 local camera = workspace.CurrentCamera
 
 --// DISABLE DEFAULT JUMP INPUT
@@ -31,9 +28,6 @@ ContextActionService:UnbindAction("TouchJump")
 --// STATES
 
 local isGrounded = false
-local touchingWall = false
-
-local wallNormal = Vector3.zero
 
 local currentSpeed = 0
 local isSprinting = false
@@ -41,35 +35,36 @@ local lastMoveDirection = Vector3.zero
 
 local lastGroundedTime = 0
 
-local oldHipHeight = humanoid.HipHeight
+local isDead = false
 
 --// SETTINGS
 
 local walkSpeed = 16
 local sprintSpeed = 24
 
-local maxMomentumSpeed = 100
+local acceleration = 24
+local airAcceleration = 12
 
-local acceleration = 7
-local airAcceleration = 3
+local groundDeceleration = 20
+local airDeceleration = 4
 
-local groundDeceleration = 7
-local airDeceleration = 1.25
-
-local friction = 0.9
+local friction = 0.88
 
 local jumpPower = humanoid.JumpPower
 local coyoteTime = 0.1
 
---// WALLKICK
-
-local wallKickForce = 60
-local wallDetectionDistance = 3
-
 --// CHARACTER SETTINGS
 
-humanoid.AutoRotate = true -- enabled to make the script compatible with shift-lock
+humanoid.AutoRotate = true -- Needs to be enabled to make the script compatible with shift-lock!
 humanoid.WalkSpeed = 0
+humanoid.BreakJointsOnDeath = true -- if enabled, it will do classic Roblox death animation; otherwise it will just ragdoll
+
+--// CAMERA SETTINGS
+
+local defaultFOV = 70
+local sprintFOV = 78
+
+local fovLerpSpeed = 8
 
 --// INPUT
 
@@ -139,44 +134,16 @@ local function updateGrounded()
 	end
 end
 
---// WALL CHECK
-
-local function updateWallCheck()
-
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {character}
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	
-	local result = workspace:Raycast(
-		rootPart.Position,
-		-- rootPart.CFrame.LookVector * wallDetectionDistance, // commented to try fix the wallkick mechanism
-		lastMoveDirection * wallDetectionDistance, -- should fix for now
-		params
-	)
-	
-	--[[ no longer need this since it doesnt allow for chained walljumps and proper wallkicks
-	if result and not isGrounded then
-		touchingWall = true
-	else
-		touchingWall = false
-	end
-	]]
-	
-	if result and not isGrounded then -- new wallcheck implementation
-
-		touchingWall = true
-		wallNormal = result.Normal
-
-	else
-
-		touchingWall = false
-		wallNormal = Vector3.zero
-	end
-end
-
 --// JUMP
 
 local function doJump()
+
+	if character:GetAttribute(
+		"MovementLocked"
+		) then
+
+		return
+	end
 
 	local canGroundJump =
 		isGrounded
@@ -192,22 +159,6 @@ local function doJump()
 		return
 	end
 
-	--// WALLKICK
-
-	if touchingWall then
-
-		local boostDirection =
-			-rootPart.CFrame.LookVector
-
-		rootPart.Velocity =
-			(boostDirection * wallKickForce)
-			+ Vector3.new(
-				0,
-				jumpPower,
-				0
-			)
-		
-	end
 end
 
 --// INPUT EVENTS
@@ -223,7 +174,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
-	--// SPRINT
+--// SPRINT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	if gameProcessed then
@@ -246,8 +197,25 @@ end)
 
 local function updateMovement(dt)
 
+	if character:GetAttribute(
+		"MovementLocked"
+		) then
+
+		humanoid:Move(
+			Vector3.zero
+		)
+
+		rootPart.AssemblyLinearVelocity =
+			Vector3.zero
+
+		return
+	end
+
 	updateGrounded()
-	updateWallCheck()
+
+	if isDead then
+		return
+	end
 
 	local moveDirection = getMoveDirection()
 
@@ -258,7 +226,7 @@ local function updateMovement(dt)
 	local groundedDeceleration =
 		isGrounded and groundDeceleration
 		or airDeceleration
-	
+
 	local targetSpeed =
 		isSprinting
 		and sprintSpeed
@@ -268,7 +236,8 @@ local function updateMovement(dt)
 
 	if moveDirection.Magnitude > 0 then
 
-		currentSpeed = targetSpeed
+		currentSpeed +=
+			groundedAcceleration * dt
 
 		currentSpeed =
 			math.clamp(
@@ -287,7 +256,13 @@ local function updateMovement(dt)
 			isGrounded and 8 or 4
 
 		if reversing then
-			turnSpeed *= 0.35
+			currentSpeed -=
+				groundedDeceleration
+				* 2
+				* dt
+
+			currentSpeed =
+				math.max(currentSpeed, 0)
 		end
 
 		lastMoveDirection =
@@ -320,33 +295,51 @@ local function updateMovement(dt)
 		humanoid:Move(lastMoveDirection)
 	end
 
-	--// ROTATION
-	
-	--[[ commented this because it makes shiftlock not work since it's overriding, roblox autorotate already does it better
-	if lastMoveDirection.Magnitude > 0.1 then
+	--// CAMERA
 
-		rootPart.CFrame = CFrame.lookAt(
-			rootPart.Position,
-			rootPart.Position + lastMoveDirection
+	local targetFOV =
+		isSprinting
+		and sprintFOV
+		or defaultFOV
+
+	camera.FieldOfView =
+		camera.FieldOfView
+		+ (
+			targetFOV
+			- camera.FieldOfView
 		)
-	end
-	]]
+		* math.min(dt * fovLerpSpeed, 1)
+
 end
 
 --// FALL LIMIT
 
 RunService.RenderStepped:Connect(function()
 
-	local velocity = rootPart.Velocity
+	local velocity =
+		rootPart.AssemblyLinearVelocity
 
 	if velocity.Y < -250 then
 
-		rootPart.Velocity = Vector3.new(
-			velocity.X,
-			-250,
-			velocity.Z
-		)
+		rootPart.AssemblyLinearVelocity =
+			Vector3.new(
+				velocity.X,
+				-250,
+				velocity.Z
+			)
 	end
+end)
+
+--// DEATH SAFEGUARDS
+
+humanoid.Died:Connect(function()
+
+	isDead = true
+
+	isSprinting = false
+
+	camera.FieldOfView =
+		defaultFOV
 end)
 
 --// MAIN LOOP
@@ -354,6 +347,10 @@ end)
 RunService.RenderStepped:Connect(updateMovement)
 
 --// DISABLE BAD STATES
+
+--[[ 
+
+	// Bruh, these were making my character fall into the floor on its face instead of breaking apart, now it should make the oof death work
 
 humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.Ragdoll,
@@ -364,6 +361,8 @@ humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.FallingDown,
 	false
 )
+
+]] 
 
 humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.Swimming,
