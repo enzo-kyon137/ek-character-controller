@@ -77,7 +77,7 @@ local isDead = false
 
 local ControllerPresets = {
 
-	Vanilla = {
+	Vanilla = { --// Vanilla: Emulates the default Roblox movement, but with smooth turning. For general stuff.
 
 		WalkSpeed = 16,
 		SprintSpeed = 24,
@@ -94,9 +94,10 @@ local ControllerPresets = {
 		AirTurnSpeed = 8,
 
 		InstantTurning = false,
+		InstantAcceleration = true,
 	},
 
-	Enhanced = {
+	Enhanced = { --// Enhanced: Source-like, more forgiving but sluggish. For platformers and modern games.
 
 		WalkSpeed = 16,
 		SprintSpeed = 24,
@@ -113,10 +114,10 @@ local ControllerPresets = {
 		AirTurnSpeed = 6,
 
 		InstantTurning = false,
+		InstantAcceleration = false,
 	},
 
-	Precise = {
-
+	Precise = { --// Precise: Instant turning & acceleration without friction. Perfect for obbies and classic games (kinda).
 		WalkSpeed = 16,
 		SprintSpeed = 24,
 
@@ -132,6 +133,7 @@ local ControllerPresets = {
 		AirTurnSpeed = 999,
 
 		InstantTurning = true,
+		InstantAcceleration = true,
 	},
 }
 
@@ -309,15 +311,23 @@ local function updateMovement(dt)
 
 	if moveDirection.Magnitude > 0 then
 
-		currentSpeed +=
-			groundedAcceleration * dt
+		if Preset.InstantAcceleration then
 
-		currentSpeed =
-			math.clamp(
-				currentSpeed,
-				0,
-				targetSpeed
-			)
+			currentSpeed = targetSpeed
+
+		else
+
+			currentSpeed +=
+				groundedAcceleration * dt
+
+			currentSpeed =
+				math.clamp(
+					currentSpeed,
+					0,
+					targetSpeed
+				)
+
+		end
 
 		local dot =
 			lastMoveDirection:Dot(moveDirection)
@@ -363,11 +373,19 @@ local function updateMovement(dt)
 
 	else
 
-		currentSpeed -=
-			groundedDeceleration * dt
+		if Preset.InstantAcceleration then
 
-		currentSpeed =
-			math.max(currentSpeed, 0)
+			currentSpeed = 0
+
+		else
+
+			currentSpeed -=
+				groundedDeceleration * dt
+
+			currentSpeed =
+				math.max(currentSpeed, 0)
+
+		end
 
 		lastMoveDirection *= friction
 	end
