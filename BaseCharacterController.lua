@@ -140,8 +140,37 @@ local ControllerPresets = {
 	},
 }
 
+local Settings = {
+
+	SprintEnabled = true,
+
+	DefaultFOV = 70,
+	SprintFOV = 78,
+
+	FOVLerpSpeed = 8,
+
+}
+
+local Keybinds = {
+
+	Sprint = {
+		Keyboard = Enum.KeyCode.LeftShift,
+		Gamepad = Enum.KeyCode.ButtonL3,
+	},
+
+	Jump = {
+		Keyboard = Enum.KeyCode.Space,
+		Gamepad = Enum.KeyCode.ButtonA,
+	},
+
+	ShiftLock = {
+		Keyboard = Enum.KeyCode.LeftControl,
+	},
+
+}
+
 local Preset =
-	ControllerPresets.Precise
+	ControllerPresets.Vanilla
 
 local walkSpeed = Preset.WalkSpeed
 local sprintSpeed = Preset.SprintSpeed
@@ -165,10 +194,10 @@ humanoid.BreakJointsOnDeath = true -- if enabled, it will do classic Roblox deat
 
 --// CAMERA SETTINGS
 
-local defaultFOV = 70
-local sprintFOV = 78
+local defaultFOV = Settings.DefaultFOV
+local sprintFOV = Settings.SprintFOV
 
-local fovLerpSpeed = 8
+local fovLerpSpeed = Settings.FOVLerpSpeed
 
 --// INPUT
 
@@ -252,28 +281,35 @@ ContextActionService:BindAction(
 		return Enum.ContextActionResult.Sink
 	end,
 	false,
-	Enum.KeyCode.Space,
-	Enum.KeyCode.ButtonA
+	Keybinds.Jump.Keyboard,
+	Keybinds.Jump.Gamepad
 )
 
 --// SPRINT
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
+ContextActionService:BindAction(
+	"EKSprint",
+	function(_, state)
 
-	if gameProcessed then
-		return
-	end
+		if not Settings.SprintEnabled then
+			return Enum.ContextActionResult.Pass
+		end
 
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		isSprinting = true
-	end
-end)
+		if state == Enum.UserInputState.Begin then
 
-UserInputService.InputEnded:Connect(function(input)
+			isSprinting = true
 
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		isSprinting = false
-	end
-end)
+		elseif state == Enum.UserInputState.End then
+
+			isSprinting = false
+
+		end
+
+		return Enum.ContextActionResult.Sink
+	end,
+	false,
+	Keybinds.Sprint.Keyboard,
+	Keybinds.Sprint.Gamepad
+)
 
 --// MOVEMENT LOOP
 
@@ -326,7 +362,7 @@ local function updateMovement(dt)
 		or airDeceleration
 
 	local targetSpeed =
-		isSprinting
+		(Settings.SprintEnabled and isSprinting)
 		and sprintSpeed
 		or walkSpeed
 
