@@ -73,6 +73,9 @@ local lastGroundedTime = 0
 
 local isDead = false
 
+local jumpHeld = false
+local autoJumpConsumed = false
+
 --// SETTINGS
 
 local ControllerPresets = {
@@ -235,10 +238,14 @@ ContextActionService:BindAction(
 	"EKJump",
 	function(_, state)
 
-		if state
-			== Enum.UserInputState.Begin then
+		if state == Enum.UserInputState.Begin then
 
+			jumpHeld = true
 			doJump()
+
+		elseif state == Enum.UserInputState.End then
+
+			jumpHeld = false
 
 		end
 
@@ -290,6 +297,22 @@ local function updateMovement(dt)
 
 	if isDead then
 		return
+	end
+
+	--// AUTO JUMP
+
+	if not isGrounded then
+		autoJumpConsumed = false
+	end
+
+	if jumpHeld
+		and isGrounded
+		and not autoJumpConsumed then
+
+		autoJumpConsumed = true
+
+		doJump()
+
 	end
 
 	local moveDirection = getMoveDirection()
