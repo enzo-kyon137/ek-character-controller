@@ -1,6 +1,4 @@
---// Momentum Movement Prototype
---// Blue Skye inspired approach
---// Keeps Humanoid alive instead of fighting it
+--// M.M.P //--
 
 --// SERVICES
 
@@ -25,6 +23,44 @@ ContextActionService:UnbindAction("jumpAction")
 ContextActionService:UnbindAction("GamepadJump")
 ContextActionService:UnbindAction("TouchJump")
 
+--// CUSTOM SHIFTLOCK REMAPPING WORKAROUND LOL
+--// (so we can change MouseLockController's boundkeys to control keys instead)
+
+task.spawn(function()
+
+	local player = Players.LocalPlayer
+
+	if not player then
+		return
+	end
+
+	local success, mouseLockController = pcall(function()
+
+		return player
+			:WaitForChild("PlayerScripts")
+			:WaitForChild("PlayerModule")
+			:WaitForChild("CameraModule")
+			:WaitForChild("MouseLockController")
+
+	end)
+
+	if not success or not mouseLockController then
+		return
+	end
+
+	local boundKeys =
+		mouseLockController:WaitForChild(
+			"BoundKeys",
+			5
+		)
+
+	if boundKeys then
+		boundKeys.Value =
+			"LeftControl,RightControl"
+	end
+
+end)
+
 --// STATES
 
 local isGrounded = false
@@ -39,16 +75,79 @@ local isDead = false
 
 --// SETTINGS
 
-local walkSpeed = 16
-local sprintSpeed = 24
+local ControllerPresets = {
 
-local acceleration = 24
-local airAcceleration = 12
+	Vanilla = {
 
-local groundDeceleration = 20
-local airDeceleration = 4
+		WalkSpeed = 16,
+		SprintSpeed = 24,
 
-local friction = 0.88
+		Acceleration = 36,
+		AirAcceleration = 18,
+
+		GroundDeceleration = 40,
+		AirDeceleration = 10,
+
+		Friction = 0.75,
+
+		TurnSpeed = 20,
+		AirTurnSpeed = 8,
+
+		InstantTurning = false,
+	},
+
+	Enhanced = {
+
+		WalkSpeed = 16,
+		SprintSpeed = 24,
+
+		Acceleration = 18,
+		AirAcceleration = 9,
+
+		GroundDeceleration = 24,
+		AirDeceleration = 5,
+
+		Friction = 0.92,
+
+		TurnSpeed = 14,
+		AirTurnSpeed = 6,
+
+		InstantTurning = false,
+	},
+
+	Precise = {
+
+		WalkSpeed = 16,
+		SprintSpeed = 24,
+
+		Acceleration = 60,
+		AirAcceleration = 60,
+
+		GroundDeceleration = 60,
+		AirDeceleration = 60,
+
+		Friction = 0,
+
+		TurnSpeed = 999,
+		AirTurnSpeed = 999,
+
+		InstantTurning = true,
+	},
+}
+
+local Preset =
+	ControllerPresets.Precise
+
+local walkSpeed = Preset.WalkSpeed
+local sprintSpeed = Preset.SprintSpeed
+
+local acceleration = Preset.Acceleration
+local airAcceleration = Preset.AirAcceleration
+
+local groundDeceleration = Preset.GroundDeceleration
+local airDeceleration = Preset.AirDeceleration
+
+local friction = Preset.Friction
 
 local jumpPower = humanoid.JumpPower
 local coyoteTime = 0.1
@@ -145,8 +244,11 @@ local function doJump()
 		return
 	end
 
+	local state = humanoid:GetState()
+
 	local canGroundJump =
 		isGrounded
+		or state == Enum.HumanoidStateType.Climbing
 		or ((tick() - lastGroundedTime) <= coyoteTime)
 
 	if canGroundJump then
@@ -253,7 +355,9 @@ local function updateMovement(dt)
 			dot < -0.35
 
 		local turnSpeed =
-			isGrounded and 8 or 4
+			isGrounded
+			and Preset.TurnSpeed
+			or Preset.AirTurnSpeed
 
 		if reversing then
 			currentSpeed -=
@@ -265,11 +369,26 @@ local function updateMovement(dt)
 				math.max(currentSpeed, 0)
 		end
 
-		lastMoveDirection =
-			lastMoveDirection:Lerp(
-				moveDirection,
-				dt * turnSpeed
-			)
+		if Preset.InstantTurning then
+
+			lastMoveDirection = moveDirection
+
+		else
+
+			if currentSpeed < 2 then
+
+				lastMoveDirection = moveDirection
+
+			else
+
+				lastMoveDirection =
+					lastMoveDirection:Lerp(
+						moveDirection,
+						dt * turnSpeed
+					)
+			end
+
+		end
 
 	else
 
