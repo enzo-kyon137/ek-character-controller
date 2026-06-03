@@ -1,3 +1,11 @@
+# Character Controller Development Plan
+
+Originally written during the internal "V2" rewrite phase of the project.
+
+The "V2" name refers to a development codename used while rebuilding the controller and does not correspond to a public release version.
+
+---
+
 # Enzo Kyon's Character Controller
 
 ## Purpose
