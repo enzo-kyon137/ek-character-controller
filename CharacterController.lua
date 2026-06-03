@@ -1,4 +1,7 @@
---// M.M.P //--
+--// CHARACTER CONTROLLER V2.1 //--
+
+-- This local script is dependent on AttributeCreator to handle custom attributes inside Humanoid!
+-- !! Place this script into StarterCharacterScripts !!
 
 --// SERVICES
 
@@ -20,10 +23,9 @@ local camera = workspace.CurrentCamera
 
 ContextActionService:UnbindAction("jumpAction")
 ContextActionService:UnbindAction("GamepadJump")
--- ContextActionService:UnbindAction("TouchJump")
+-- ContextActionService:UnbindAction("TouchJump") -- bruh, im not going to waste my time making a custom jump button for mobile players, let them have it .-.
 
---// CUSTOM SHIFTLOCK REMAPPING WORKAROUND LOL
---// (so we can change MouseLockController's boundkeys to control keys instead)
+--// CUSTOM SHIFTLOCK REMAPPING
 
 task.spawn(function()
 
@@ -55,7 +57,7 @@ task.spawn(function()
 
 	if boundKeys then
 		boundKeys.Value =
-			"LeftControl,RightControl"
+			"LeftControl,RightControl" -- I swear some people probably don't know this... at least  ;-;
 	end
 
 end)
@@ -357,14 +359,27 @@ ContextActionService:BindAction(
 --// MOVEMENT LOOP
 
 local function updateMovement(dt)
+	
+	--// NEW MOVEMENT ATTRIBUTES
+	
+	local canMove =
+		humanoid:GetAttribute(
+			"CanMove"
+		)
 
-	if character:GetAttribute(
-		"MovementLocked"
-		) then
+	local moveMultiplier =
+		humanoid:GetAttribute(
+			"MoveMultiplier"
+		)
+		or 1
+	
+	if canMove == false then
 
 		humanoid:Move(
 			Vector3.zero
 		)
+
+		humanoid.WalkSpeed = 0
 
 		rootPart.AssemblyLinearVelocity =
 			Vector3.zero
@@ -406,9 +421,12 @@ local function updateMovement(dt)
 		or airDeceleration
 
 	local targetSpeed =
-		(Settings.SprintEnabled and isSprinting)
-		and sprintSpeed
-		or walkSpeed
+		(
+			(Settings.SprintEnabled and isSprinting)
+			and sprintSpeed
+			or walkSpeed
+		)
+		* moveMultiplier
 
 	--// MOVEMENT
 
@@ -572,7 +590,7 @@ RunService.RenderStepped:Connect(updateMovement)
 
 --[[ 
 
-	// Bruh, these were making my character fall into the floor on its face instead of breaking apart, now it should make the oof death work
+	// Bruh, these were making my character fall into the floor on its face instead of breaking apart, now it should make the oof death work - Enzo
 
 humanoid:SetStateEnabled(
 	Enum.HumanoidStateType.Ragdoll,

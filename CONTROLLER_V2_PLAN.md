@@ -1,80 +1,262 @@
-# Character Controller V2 Plan
+# Enzo Kyon's Character Controller
+
+## Purpose
+
+Enzo Kyon's Character Controller is a Humanoid-based locomotion controller designed to be simple, readable, configurable, and plug-and-play.
+
+The controller focuses exclusively on locomotion and intentionally avoids becoming an all-in-one character framework.
+
+Its primary goals are:
+
+- Compatibility
+- Simplicity
+- Readability
+- Extensibility
+- Cross-platform support
+
+The controller should work with keyboard, mobile, and gamepad without requiring separate movement implementations.
+
+---
 
 ## Source Of Truth
 
-- Base the rework on the recovered main-branch controller.
-- Do not use the older wallkick prototype as the foundation.
-- Preserve working shift-lock compatibility improvements.
+- Development is based on the `rework/controller-v2` branch.
+- V2 is the primary implementation of the controller.
+- Earlier controller experiments should not be used as a foundation for future development.
+- Preserve tested functionality whenever possible.
 
-## Goals
+---
 
-- Keep Humanoid for grounding, slopes, stairs, replication and compatibility.
-- Keep the controller focused on locomotion.
-- Remove traversal experiments from the foundation.
-- Keep AnimationController and SlideController separate.
-- Preserve compatibility with MovementLocked.
+## Design Goals
 
-## BaseCharacterController Responsibilities
+- Keep Humanoid for grounding, slopes, stairs, seats, replication, and compatibility.
+- Keep locomotion self-contained.
+- Remain compatible with Roblox Animate and custom animation systems.
+- Support keyboard, mobile, and gamepad.
+- Minimize required networking for basic usage.
+- Prioritize readability and maintainability.
+- Preserve plug-and-play behavior.
 
-- Input
-- Ground Detection
-- Movement
+---
+
+## Architecture
+
+### CharacterController.lua (Client)
+
+Responsible for:
+
+- Input handling
+- Ground state updates
+- Movement simulation
 - Sprinting
 - Momentum
+- Braking
+- Jumping
+- AutoJump
+- Camera FOV feedback
+- Shift-lock compatibility
+- Reading Humanoid attributes
 
-## Remove From V2
+### AttributeCreator.lua (Server)
 
-- Wall detection
-- Wall normals
-- Wallkick state
-- Wallkick forces
-- Traversal-specific logic
-- HeadLock system
-- CameraSubject switching
-- Unused controller baggage
+Responsible for:
 
-## Keep From Main Branch
+- Creating Humanoid movement attributes
+- Providing server-side integration points
+- Initializing default movement values
 
-- Camera-relative movement
-- MovementLocked support
-- Sprint FOV feedback
-- Direction smoothing
-- Death safeguards
-- Humanoid AutoRotate shift-lock compatibility
+Default attributes:
 
-## Desired Flow
+```lua
+CanMove = true
+MoveMultiplier = 1
+```
 
-Input
--> Desired Move Direction
--> Ground State Update
--> Speed Simulation
--> Momentum Update
--> Humanoid Output
+---
 
-## Shift-Lock Plan
+## Supported Features
 
-- Sprint remains on Shift.
-- Shift-lock should be moved to LeftCtrl and RightCtrl.
-- Shift-lock handling should remain separate from locomotion logic whenever possible.
+- Sprinting
+- Configurable keybinds
+- Keyboard support
+- Mobile support
+- Gamepad support
+- AutoJump
+- Coyote time
+- JumpPower support
+- JumpHeight support
+- Sprint FOV adaptation
+- Movement braking
+- Movement presets
+- Shift-lock remapping
+- Roblox Animate compatibility
 
-## Future Extensions
+---
 
-BaseSlideController
+## Movement Presets
+
+The included presets are examples and starting points.
+
+Developers are encouraged to modify existing presets or create entirely new presets that better fit their own experiences.
+
+Movement feel is subjective and there is no single "correct" configuration.
+
+### Vanilla
+
+Goal:
+
+- Similar to default Roblox movement
+- Smooth turning
+- Instant acceleration
+
+Recommended for:
+
+- General Roblox experiences
+
+### Enhanced
+
+Goal:
+
+- Momentum-focused movement
+- Slower acceleration
+- Smoother transitions
+
+Recommended for:
+
+- Platformers
+- Adventure games
+
+### Precise
+
+Goal:
+
+- Instant acceleration
+- Instant turning
+- No friction
+
+Recommended for:
+
+- Obbies
+- Classic-style experiences
+- Competitive movement
+
+Notes:
+
+- Currently the most tested preset.
+- Serves as the primary reference implementation.
+- Considered the most reliable preset included with the controller.
+
+Vanilla and Enhanced should be considered reference examples rather than finalized movement styles.
+
+---
+
+## Server Integration
+
+Movement can be controlled through Humanoid attributes.
+
+Freeze movement:
+
+```lua
+humanoid:SetAttribute(
+	"CanMove",
+	false
+)
+```
+
+Restore movement:
+
+```lua
+humanoid:SetAttribute(
+	"CanMove",
+	true
+)
+```
+
+Speed boost:
+
+```lua
+humanoid:SetAttribute(
+	"MoveMultiplier",
+	1.5
+)
+```
+
+Slowdown:
+
+```lua
+humanoid:SetAttribute(
+	"MoveMultiplier",
+	0.5
+)
+```
+
+The controller automatically reacts to attribute changes.
+
+---
+
+## Intentionally Excluded
+
+This controller focuses exclusively on locomotion.
+
+The following systems are intentionally excluded from the foundation:
+
+- Wallrunning
+- Wallkicks
+- Wall climbing
+- Traversal abilities
 - Sliding
-- Slide-specific momentum behavior
-
-BaseAnimationController
+- HeadLock
+- CameraSubject switching
 - Animation playback
-- Movement interpretation
-- Visual responsiveness
+- Combat systems
 
-## Priority Order
+These systems should be implemented separately when needed.
 
-1. Real acceleration and deceleration.
-2. Remove HeadLock system.
-3. Shift-lock remapping support.
-4. Remove custom jump handling.
-5. Cleanup unused variables.
-6. Humanoid-compatible movement output.
+---
 
-Wall interactions are intentionally excluded from the V2 foundation.
+## AI / Agent Notes
+
+AI-assisted development is allowed and encouraged.
+
+Tools such as ChatGPT, Gemini, Claude, Copilot, Codex, and similar assistants may be used to help:
+
+- Understand code
+- Review code
+- Debug issues
+- Write documentation
+- Refactor systems
+- Extend functionality
+
+However:
+
+- Review AI suggestions before accepting them.
+- Test significant changes.
+- Do not blindly trust rewrites.
+- Preserve working functionality whenever possible.
+- Understand a change before merging it.
+- Prefer focused modifications over unnecessary rewrites.
+- Respect the current architecture.
+- Avoid introducing major systems unrelated to locomotion.
+
+This controller was developed with AI-assisted collaboration.
+
+AI output should be treated as suggestions rather than unquestionable truth.
+
+---
+
+## Open Source Philosophy
+
+This project is intended to be modified, studied, extended, forked, and adapted.
+
+Developers are encouraged to:
+
+- Learn from the implementation
+- Customize movement behavior
+- Create new presets
+- Modify existing systems
+- Build their own derivatives
+- Fork the project
+
+Different games have different movement requirements.
+
+Customization is expected and encouraged.
