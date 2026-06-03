@@ -20,7 +20,7 @@ local camera = workspace.CurrentCamera
 
 ContextActionService:UnbindAction("jumpAction")
 ContextActionService:UnbindAction("GamepadJump")
--- ContextActionService:UnbindAction("TouchJump") -- nah bro, let mobile players have their jump button back ;-;
+-- ContextActionService:UnbindAction("TouchJump")
 
 --// CUSTOM SHIFTLOCK REMAPPING WORKAROUND LOL
 --// (so we can change MouseLockController's boundkeys to control keys instead)
