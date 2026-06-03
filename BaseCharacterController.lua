@@ -21,7 +21,7 @@ local camera = workspace.CurrentCamera
 
 ContextActionService:UnbindAction("jumpAction")
 ContextActionService:UnbindAction("GamepadJump")
-ContextActionService:UnbindAction("TouchJump")
+-- ContextActionService:UnbindAction("TouchJump")
 
 --// CUSTOM SHIFTLOCK REMAPPING WORKAROUND LOL
 --// (so we can change MouseLockController's boundkeys to control keys instead)
