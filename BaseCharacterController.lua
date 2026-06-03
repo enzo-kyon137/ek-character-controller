@@ -3,7 +3,6 @@
 --// SERVICES
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 
@@ -21,7 +20,7 @@ local camera = workspace.CurrentCamera
 
 ContextActionService:UnbindAction("jumpAction")
 ContextActionService:UnbindAction("GamepadJump")
--- ContextActionService:UnbindAction("TouchJump")
+-- ContextActionService:UnbindAction("TouchJump") -- nah bro, let mobile players have their jump button back ;-;
 
 --// CUSTOM SHIFTLOCK REMAPPING WORKAROUND LOL
 --// (so we can change MouseLockController's boundkeys to control keys instead)
@@ -76,7 +75,7 @@ local isDead = false
 local jumpHeld = false
 local autoJumpConsumed = false
 
---// SETTINGS
+--// CONTROLLER PRESETS (very useful, you can make one yourself :D)
 
 local ControllerPresets = {
 
@@ -140,15 +139,23 @@ local ControllerPresets = {
 	},
 }
 
+--// SETTINGS
+
 local Settings = {
 
-	SprintEnabled = true,
+	SprintEnabled = true, -- If you don't need sprinting, you can set this to false.
 
 	DefaultFOV = 70,
 	SprintFOV = 78,
 
 	FOVLerpSpeed = 8,
 
+	AutoJump = true, -- True = enables auto-jump (automatic); False = disables auto-jump (manual)
+
+	UseJumpPower = true,
+
+	JumpPower = 50,
+	JumpHeight = 7.2,
 }
 
 local Keybinds = {
@@ -183,7 +190,6 @@ local airDeceleration = Preset.AirDeceleration
 
 local friction = Preset.Friction
 
-local jumpPower = humanoid.JumpPower
 local coyoteTime = 0.1
 
 --// CHARACTER SETTINGS
@@ -191,6 +197,21 @@ local coyoteTime = 0.1
 humanoid.AutoRotate = true -- Needs to be enabled to make the script compatible with shift-lock!
 humanoid.WalkSpeed = 0
 humanoid.BreakJointsOnDeath = true -- if enabled, it will do classic Roblox death animation; otherwise it will just ragdoll
+
+humanoid.UseJumpPower = -- Internal approach to configuring jumping :D
+	Settings.UseJumpPower
+
+if Settings.UseJumpPower then -- if it is enabled, it will use JumpPower property, otherwise, it will use JumpHeight.
+
+	humanoid.JumpPower =
+		Settings.JumpPower
+
+else -- just as said... it will use Jump Height :P
+
+	humanoid.JumpHeight =
+		Settings.JumpHeight
+
+end
 
 --// CAMERA SETTINGS
 
@@ -251,10 +272,21 @@ local function doJump()
 
 	if canGroundJump then
 
-		humanoid.JumpPower = jumpPower
-		--jumpPower + (currentSpeed * 0.03)
+		if Settings.UseJumpPower then
 
-		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			humanoid.JumpPower =
+				Settings.JumpPower
+
+		else
+
+			humanoid.JumpHeight =
+				Settings.JumpHeight
+
+		end
+
+		humanoid:ChangeState(
+			Enum.HumanoidStateType.Jumping
+		)
 
 		return
 	end
@@ -341,7 +373,8 @@ local function updateMovement(dt)
 		autoJumpConsumed = false
 	end
 
-	if jumpHeld
+	if Settings.AutoJump
+		and jumpHeld
 		and isGrounded
 		and not autoJumpConsumed then
 
@@ -464,10 +497,20 @@ local function updateMovement(dt)
 
 	--// CAMERA
 
+	local speedAlpha =
+		math.clamp(
+			(currentSpeed - walkSpeed)
+			/ (sprintSpeed - walkSpeed),
+			0,
+			1
+		)
+
 	local targetFOV =
-		isSprinting
-		and sprintFOV
-		or defaultFOV
+		defaultFOV
+		+ (
+			(sprintFOV - defaultFOV)
+			* speedAlpha
+		)
 
 	camera.FieldOfView =
 		camera.FieldOfView
