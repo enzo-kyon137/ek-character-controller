@@ -94,6 +94,9 @@ local ControllerPresets = {
 
 		TurnSpeed = 20,
 		AirTurnSpeed = 8,
+		
+		BrakeStrength = 0,
+		BrakeThreshold = 0,
 
 		InstantTurning = false,
 		InstantAcceleration = true,
@@ -114,6 +117,9 @@ local ControllerPresets = {
 
 		TurnSpeed = 14,
 		AirTurnSpeed = 6,
+		
+		BrakeStrength = 60,
+		BrakeThreshold = 8,
 
 		InstantTurning = false,
 		InstantAcceleration = false,
@@ -133,6 +139,9 @@ local ControllerPresets = {
 
 		TurnSpeed = 999,
 		AirTurnSpeed = 999,
+		
+		BrakeStrength = 999,
+		BrakeThreshold = 0,
 
 		InstantTurning = true,
 		InstantAcceleration = true,
@@ -177,7 +186,7 @@ local Keybinds = {
 }
 
 local Preset =
-	ControllerPresets.Vanilla
+	ControllerPresets.Precise -- You can always change the preset at any time, for now Precise is default because it's more reliable
 
 local walkSpeed = Preset.WalkSpeed
 local sprintSpeed = Preset.SprintSpeed
@@ -200,6 +209,8 @@ humanoid.BreakJointsOnDeath = true -- if enabled, it will do classic Roblox deat
 
 humanoid.UseJumpPower = -- Internal approach to configuring jumping :D
 	Settings.UseJumpPower
+
+humanoid.AutoJumpEnabled = false -- Disables Roblox's auto jumping to not conflict with custom implementation :V
 
 if Settings.UseJumpPower then -- if it is enabled, it will use JumpPower property, otherwise, it will use JumpHeight.
 
@@ -432,14 +443,15 @@ local function updateMovement(dt)
 			and Preset.TurnSpeed
 			or Preset.AirTurnSpeed
 
-		if reversing then
+		if reversing
+			and currentSpeed > Preset.BrakeThreshold then
+
 			currentSpeed -=
-				groundedDeceleration
-				* 2
-				* dt
+				Preset.BrakeStrength * dt
 
 			currentSpeed =
 				math.max(currentSpeed, 0)
+
 		end
 
 		if Preset.InstantTurning then
