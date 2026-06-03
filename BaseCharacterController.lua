@@ -169,51 +169,15 @@ local fovLerpSpeed = 8
 
 local function getMoveDirection()
 
-	local direction = Vector3.zero
+	local moveDirection =
+		humanoid.MoveDirection
 
-	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-		direction += Vector3.new(0,0,-1)
-	end
-
-	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-		direction += Vector3.new(0,0,1)
-	end
-
-	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-		direction += Vector3.new(-1,0,0)
-	end
-
-	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-		direction += Vector3.new(1,0,0)
-	end
-
-	if direction.Magnitude <= 0 then
+	if moveDirection.Magnitude <= 0 then
 		return Vector3.zero
 	end
 
-	direction = direction.Unit
-
-	local camCF = camera.CFrame
-
-	local camForward =
-		Vector3.new(
-			camCF.LookVector.X,
-			0,
-			camCF.LookVector.Z
-		).Unit
-
-	local camRight =
-		Vector3.new(
-			camCF.RightVector.X,
-			0,
-			camCF.RightVector.Z
-		).Unit
-
-	local moveDirection =
-		(camForward * -direction.Z)
-		+ (camRight * direction.X)
-
 	return moveDirection.Unit
+
 end
 
 --// GROUND CHECK
@@ -265,16 +229,23 @@ end
 
 --// INPUT EVENTS
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
+ContextActionService:BindAction(
+	"EKJump",
+	function(_, state)
 
-	if gameProcessed then return end
+		if state
+			== Enum.UserInputState.Begin then
 
-	--// JUMP
+			doJump()
 
-	if input.KeyCode == Enum.KeyCode.Space then
-		doJump()
-	end
-end)
+		end
+
+		return Enum.ContextActionResult.Sink
+	end,
+	false,
+	Enum.KeyCode.Space,
+	Enum.KeyCode.ButtonA
+)
 
 --// SPRINT
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
