@@ -18,6 +18,10 @@ The goal is to provide a plug-and-play controller that works across keyboard, mo
 
 
 
+Development version: v2.2 | Public version: v1.0.1
+
+
+
 ---
 
 
