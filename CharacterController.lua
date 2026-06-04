@@ -1,4 +1,4 @@
---// CHARACTER CONTROLLER V2.1 //--
+--// CHARACTER CONTROLLER V2.2 //--
 
 -- This local script is dependent on AttributeCreator to handle custom attributes inside Humanoid!
 -- !! Place this script into StarterCharacterScripts !!
@@ -96,7 +96,7 @@ local ControllerPresets = {
 
 		TurnSpeed = 20,
 		AirTurnSpeed = 8,
-		
+
 		BrakeStrength = 0,
 		BrakeThreshold = 0,
 
@@ -119,7 +119,7 @@ local ControllerPresets = {
 
 		TurnSpeed = 14,
 		AirTurnSpeed = 6,
-		
+
 		BrakeStrength = 60,
 		BrakeThreshold = 8,
 
@@ -141,7 +141,7 @@ local ControllerPresets = {
 
 		TurnSpeed = 999,
 		AirTurnSpeed = 999,
-		
+
 		BrakeStrength = 999,
 		BrakeThreshold = 0,
 
@@ -167,6 +167,8 @@ local Settings = {
 
 	JumpPower = 50,
 	JumpHeight = 7.2,
+	
+	SwimJumpPower = 30,
 }
 
 local Keybinds = {
@@ -277,6 +279,18 @@ local function doJump()
 	end
 
 	local state = humanoid:GetState()
+	
+	if state == Enum.HumanoidStateType.Swimming then
+		
+	    rootPart.AssemblyLinearVelocity =
+	        Vector3.new(
+		            rootPart.AssemblyLinearVelocity.X,
+		            Settings.SwimJumpPower,
+		            rootPart.AssemblyLinearVelocity.Z
+		        )
+	
+	    return
+	end
 
 	local canGroundJump =
 		isGrounded
@@ -359,9 +373,9 @@ ContextActionService:BindAction(
 --// MOVEMENT LOOP
 
 local function updateMovement(dt)
-	
+
 	--// NEW MOVEMENT ATTRIBUTES
-	
+
 	local canMove =
 		humanoid:GetAttribute(
 			"CanMove"
@@ -372,7 +386,7 @@ local function updateMovement(dt)
 			"MoveMultiplier"
 		)
 		or 1
-	
+
 	if canMove == false then
 
 		humanoid:Move(
@@ -603,8 +617,3 @@ humanoid:SetStateEnabled(
 )
 
 ]] 
-
-humanoid:SetStateEnabled(
-	Enum.HumanoidStateType.Swimming,
-	false
-)
