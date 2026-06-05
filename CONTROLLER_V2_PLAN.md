@@ -28,7 +28,7 @@ The controller should work with keyboard, mobile, and gamepad without requiring 
 
 ## Source Of Truth
 
-- Development is based on the `rework/controller-v2` branch.
+- Development is based on the `rework/controller-v2` branch. (Which no longer exists... I just removed it because it was no longer needed ^^;)
 - V2 is the primary implementation of the controller.
 - Earlier controller experiments should not be used as a foundation for future development.
 - Preserve tested functionality whenever possible.
