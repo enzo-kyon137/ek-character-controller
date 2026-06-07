@@ -74,7 +74,7 @@ The controller is designed to be dropped into a project and work without requiri
 
 
 
-The controller includes three example presets:
+The controller includes three example presets (these are subjective, so if you don't like any of them, feel free to create your own):
 
 
 
